@@ -61,7 +61,7 @@ If a user specifies a strict start time for EXACTLY ONE task (like "dinner at 6p
 - **User ordering preferences override everything.** If the user says "do X before Y", "X last", "X first", "X after Y", you MUST reorder the array so X appears before/after Y accordingly. This applies to ALL tasks including breaks and standing items.
 - Example: "do french before dinner" → French must appear earlier in the array than Dinner, regardless of its previous position.
 - **Fixed time + ordering conflict:** If honouring an ordering preference would cause a task with a "fixedStartTime" to start late, still keep the "fixedStartTime". The scheduler will automatically move the task that doesn't fit to after the fixed-time task and fill the gap with free time. Fixed start times always win.
-- **orderPreference flag:** Set `"orderPreference": true` on any task where the user explicitly requested its position (e.g. "X first", "X before Y", "X last", "X after Y"). Leave it unset for tasks the user did not specifically place — these are infill tasks and the scheduler will move them to make room for preferred tasks.
+- **orderPreference flag:** Set "orderPreference": true on any task where the user explicitly requested its position (e.g. "X first", "X before Y", "X last", "X after Y"). Leave it unset for tasks the user did not specifically place — these are infill tasks and the scheduler will move them to make room for preferred tasks.
 If no durations are mentioned, default to 30 minutes for regular subjects.
 If the user specifies they have dinner, a snack, or explicit free time, include it in the "subjects" array with "isBreak": true and "colorClass": "bg-gray-200 text-gray-700".
 
