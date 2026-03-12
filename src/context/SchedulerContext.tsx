@@ -1,7 +1,14 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { generateScheduleItems } from '../lib/scheduleGenerator';
+import type { SubjectInput, StandingItemInput } from '../lib/scheduleGenerator';
+
+interface GenerationInputs {
+    subjects: SubjectInput[];
+    breakDuration: number;
+    standingItems: StandingItemInput[];
+}
 
 export type ScheduleItemType = 'study' | 'break' | 'standing';
 
@@ -30,7 +37,7 @@ interface SchedulerContextType {
     updateItem: (id: string, updates: Partial<ScheduleItem>) => void;
     reorderItems: (startIndex: number, endIndex: number) => void;
     clearItems: () => void;
-    generateSchedule: (subjects: { name: string, duration: number, colorClass: string, isStanding?: boolean, isBreak?: boolean, fixedStartTime?: string }[], breakDuration: number, standingItems?: { name: string, durationMinutes: number, startTime?: string }[]) => void;
+    generateSchedule: (subjects: SubjectInput[], breakDuration: number, standingItems?: StandingItemInput[]) => void;
 }
 
 const defaultTimeBounds: TimeBounds = {
@@ -44,6 +51,16 @@ export const SchedulerProvider: React.FC<{ children: ReactNode }> = ({ children 
     const [timeBounds, setTimeBounds] = useState<TimeBounds>(defaultTimeBounds);
     const [items, setItems] = useState<ScheduleItem[]>([]);
     const [warnings, setWarnings] = useState<string[]>([]);
+    const lastInputs = useRef<GenerationInputs | null>(null);
+
+    // Re-run the schedule when start time changes, so fixed tasks are re-ordered correctly
+    useEffect(() => {
+        if (!lastInputs.current || items.length === 0) return;
+        const { subjects, breakDuration, standingItems } = lastInputs.current;
+        const result = generateScheduleItems(subjects, breakDuration, timeBounds.start, standingItems);
+        setItems(result.items);
+        setWarnings(result.warnings);
+    }, [timeBounds.start]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const addItem = (item: Omit<ScheduleItem, 'id'>) => {
         setItems(prev => [...prev, { ...item, id: uuidv4() }]);
@@ -69,13 +86,15 @@ export const SchedulerProvider: React.FC<{ children: ReactNode }> = ({ children 
     const clearItems = () => {
         setItems([]);
         setWarnings([]);
+        lastInputs.current = null;
     };
 
     const generateSchedule = (
-        subjects: { name: string, duration: number, colorClass: string, isStanding?: boolean, isBreak?: boolean, fixedStartTime?: string }[],
+        subjects: SubjectInput[],
         breakDuration: number,
-        standingItems: { name: string, durationMinutes: number, startTime?: string }[] = []
+        standingItems: StandingItemInput[] = []
     ) => {
+        lastInputs.current = { subjects, breakDuration, standingItems };
         const result = generateScheduleItems(subjects, breakDuration, timeBounds.start, standingItems);
         setItems(result.items);
         setWarnings(result.warnings);
