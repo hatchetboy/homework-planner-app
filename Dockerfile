@@ -10,7 +10,7 @@ RUN npm ci
 # Copy all project files and build
 COPY . .
 ARG BUILD_NUMBER=0
-RUN VITE_APP_BUILD_NUMBER=${BUILD_NUMBER} npm run build
+RUN sed -i "s/^VITE_APP_BUILD_NUMBER=.*/VITE_APP_BUILD_NUMBER=${BUILD_NUMBER}/" .env && npm run build
 
 # Stage 2: Serve the application with Nginx
 FROM nginx:alpine
