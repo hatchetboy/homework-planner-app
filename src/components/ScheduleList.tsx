@@ -64,15 +64,15 @@ export const ScheduleList: React.FC = () => {
 
     const handleExport = async () => {
         if (!accessToken) {
-            alert("You need to sign in to Google to export your schedule.");
+            alert("Whoa there! You need to sign in to Google before you can export. Computers can't read minds — yet.");
             return;
         }
         setIsExporting(true);
         try {
             await exportToGoogleCalendar(accessToken, items, timeBounds);
-            alert("Successfully exported to Google Calendar!");
+            alert("Boom! Your schedule is now in Google Calendar. No excuses for forgetting anything!");
         } catch (e) {
-            alert("Failed to export. Note: This relies on the Google Calendar API being properly configured with a real Client ID.");
+            alert("Well, that didn't work. Turns out Google Calendar needs a real Client ID to function — shocking, we know. Ask a grown-up to set it up properly.");
         } finally {
             setIsExporting(false);
         }

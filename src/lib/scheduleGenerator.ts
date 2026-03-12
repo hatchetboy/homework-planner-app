@@ -114,7 +114,7 @@ export function buildScheduleItems(
                 const requested = format(requestedTime, 'h:mm a');
                 const actual = format(currentTime, 'h:mm a');
                 warnings.push(
-                    `"${subject.name}" was requested at ${requested} but has been rescheduled to ${actual} due to a conflict.`
+                    `Uh oh! "${subject.name}" wanted to start at ${requested}, but your jam-packed schedule pushed it to ${actual}. Ever heard of leaving a little breathing room?`
                 );
             }
         }
