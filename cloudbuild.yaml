@@ -1,0 +1,25 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        BUILD_NUMBER=$(git rev-list --count HEAD)
+        echo "Building version 1.$${BUILD_NUMBER}"
+        docker build \
+          --build-arg BUILD_NUMBER=$${BUILD_NUMBER} \
+          -t gcr.io/$PROJECT_ID/homework-planner:$COMMIT_SHA \
+          -t gcr.io/$PROJECT_ID/homework-planner:latest \
+          .
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/homework-planner']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - run
+      - deploy
+      - homework-planner
+      - --image=gcr.io/$PROJECT_ID/homework-planner:$COMMIT_SHA
+      - --region=us-central1
+      - --allow-unauthenticated

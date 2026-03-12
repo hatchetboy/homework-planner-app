@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 import { execSync } from 'child_process'
 
 const MAJOR_VERSION = 1;
-const buildNumber = parseInt(execSync('git rev-list --count HEAD').toString().trim(), 10);
+const buildNumber = process.env.VITE_APP_BUILD_NUMBER
+    ?? (() => { try { return execSync('git rev-list --count HEAD').toString().trim(); } catch { return '0'; } })();
 
 // https://vite.dev/config/
 export default defineConfig({
