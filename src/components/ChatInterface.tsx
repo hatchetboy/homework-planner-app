@@ -25,6 +25,14 @@ export const ChatInterface: React.FC = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [displayMessages]);
 
+    const wasProcessing = useRef(false);
+    useEffect(() => {
+        if (!isProcessing && wasProcessing.current) {
+            inputRef.current?.focus();
+        }
+        wasProcessing.current = isProcessing;
+    }, [isProcessing]);
+
     const handlePromptSubmit = async () => {
         if (!prompt.trim()) return;
 
@@ -91,7 +99,6 @@ export const ChatInterface: React.FC = () => {
             setDisplayMessages(prev => [...prev, { role: 'assistant', text: "Oops, something went wrong!" }]);
         } finally {
             setIsProcessing(false);
-            setTimeout(() => inputRef.current?.focus(), 0);
         }
     };
 
