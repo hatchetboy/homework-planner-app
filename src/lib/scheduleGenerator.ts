@@ -178,6 +178,11 @@ export function generateScheduleItems(
         subjectsToProcess = [...preparedStanding, ...subjectsToProcess];
     }
 
-    const ordered = resolveFixedTimeConflicts(subjectsToProcess, scheduleStart, breakDuration);
+    // When standingItems are provided, the caller hasn't pre-ordered things so we
+    // resolve conflicts automatically. When they're empty the AI has already placed
+    // everything in the correct order — don't second-guess it.
+    const ordered = standingItems.length > 0
+        ? resolveFixedTimeConflicts(subjectsToProcess, scheduleStart, breakDuration)
+        : subjectsToProcess;
     return buildScheduleItems(ordered, breakDuration, scheduleStart);
 }

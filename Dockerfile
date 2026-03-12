@@ -9,7 +9,8 @@ RUN npm ci
 
 # Copy all project files and build
 COPY . .
-RUN npm run build
+ARG BUILD_NUMBER=0
+RUN VITE_APP_BUILD_NUMBER=${BUILD_NUMBER} npm run build
 
 # Stage 2: Serve the application with Nginx
 FROM nginx:alpine
