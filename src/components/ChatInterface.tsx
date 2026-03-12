@@ -16,6 +16,7 @@ export const ChatInterface: React.FC = () => {
     const [displayMessages, setDisplayMessages] = useState<DisplayMessage[]>([]);
     const [geminiHistory, setGeminiHistory] = useState<GeminiHistoryEntry[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const { setTimeBounds, generateSchedule, clearItems, items } = useScheduler();
     const { settings } = useSettings();
@@ -90,6 +91,7 @@ export const ChatInterface: React.FC = () => {
             setDisplayMessages(prev => [...prev, { role: 'assistant', text: "Oops, something went wrong!" }]);
         } finally {
             setIsProcessing(false);
+            inputRef.current?.focus();
         }
     };
 
@@ -150,6 +152,7 @@ export const ChatInterface: React.FC = () => {
             <div className="flex-center gap-3">
                 <div style={{ flex: 1 }}>
                     <Input
+                        ref={inputRef}
                         label=""
                         placeholder={displayMessages.length > 0 ? "Add more, remove something, or say 'clear'…" : "What's your homework tonight?"}
                         value={prompt}
