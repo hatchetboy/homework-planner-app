@@ -24,12 +24,13 @@ interface SchedulerContextType {
     timeBounds: TimeBounds;
     setTimeBounds: (bounds: TimeBounds) => void;
     items: ScheduleItem[];
+    warnings: string[];
     addItem: (item: Omit<ScheduleItem, 'id'>) => void;
     removeItem: (id: string) => void;
     updateItem: (id: string, updates: Partial<ScheduleItem>) => void;
     reorderItems: (startIndex: number, endIndex: number) => void;
     clearItems: () => void;
-    generateSchedule: (subjects: { name: string, duration: number, colorClass: string, isStanding?: boolean, isBreak?: boolean, fixedStartTime?: string }[], breakDuration: number, standingItems?: { name: string, durationMinutes: number }[]) => void;
+    generateSchedule: (subjects: { name: string, duration: number, colorClass: string, isStanding?: boolean, isBreak?: boolean, fixedStartTime?: string }[], breakDuration: number, standingItems?: { name: string, durationMinutes: number, startTime?: string }[]) => void;
 }
 
 const defaultTimeBounds: TimeBounds = {
@@ -42,6 +43,7 @@ const SchedulerContext = createContext<SchedulerContextType | undefined>(undefin
 export const SchedulerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [timeBounds, setTimeBounds] = useState<TimeBounds>(defaultTimeBounds);
     const [items, setItems] = useState<ScheduleItem[]>([]);
+    const [warnings, setWarnings] = useState<string[]>([]);
 
     const addItem = (item: Omit<ScheduleItem, 'id'>) => {
         setItems(prev => [...prev, { ...item, id: uuidv4() }]);
@@ -64,20 +66,25 @@ export const SchedulerProvider: React.FC<{ children: ReactNode }> = ({ children 
         });
     };
 
-    const clearItems = () => setItems([]);
+    const clearItems = () => {
+        setItems([]);
+        setWarnings([]);
+    };
 
     const generateSchedule = (
         subjects: { name: string, duration: number, colorClass: string, isStanding?: boolean, isBreak?: boolean, fixedStartTime?: string }[],
         breakDuration: number,
-        standingItems: { name: string, durationMinutes: number }[] = []
+        standingItems: { name: string, durationMinutes: number, startTime?: string }[] = []
     ) => {
-        setItems(generateScheduleItems(subjects, breakDuration, timeBounds.start, standingItems));
+        const result = generateScheduleItems(subjects, breakDuration, timeBounds.start, standingItems);
+        setItems(result.items);
+        setWarnings(result.warnings);
     };
 
     return (
         <SchedulerContext.Provider value={{
             timeBounds, setTimeBounds,
-            items, addItem, removeItem, updateItem, reorderItems, clearItems, generateSchedule
+            items, warnings, addItem, removeItem, updateItem, reorderItems, clearItems, generateSchedule
         }}>
             {children}
         </SchedulerContext.Provider>
