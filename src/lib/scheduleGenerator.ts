@@ -178,11 +178,9 @@ export function generateScheduleItems(
         subjectsToProcess = [...preparedStanding, ...subjectsToProcess];
     }
 
-    // When standingItems are provided, the caller hasn't pre-ordered things so we
-    // resolve conflicts automatically. When they're empty the AI has already placed
-    // everything in the correct order — don't second-guess it.
-    const ordered = standingItems.length > 0
-        ? resolveFixedTimeConflicts(subjectsToProcess, scheduleStart, breakDuration)
-        : subjectsToProcess;
+    // Always resolve fixed-time conflicts: fixed start times take priority over
+    // ordering preferences. If a flexible task can't fit before a fixed-time task,
+    // it gets moved after it and free time fills the gap.
+    const ordered = resolveFixedTimeConflicts(subjectsToProcess, scheduleStart, breakDuration);
     return buildScheduleItems(ordered, breakDuration, scheduleStart);
 }
