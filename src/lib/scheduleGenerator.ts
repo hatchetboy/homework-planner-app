@@ -54,13 +54,28 @@ export function resolveFixedTimeConflicts(
                 const fixedTime = parse(subject.fixedStartTime, TIME_FORMAT, new Date());
 
                 if (fixedTime < currentTrialTime) {
-                    // Conflict: find the most recent flexible task before this one and move it after
+                    // Conflict: find the FIRST flexible task that causes the overflow by
+                    // simulating forward from the start. Moving it preserves the relative
+                    // order of remaining tasks, so the task placed closest to the fixed
+                    // task by the AI ends up closest to it in the final schedule.
                     let moveIndex = -1;
-                    for (let j = i - 1; j >= 0; j--) {
-                        if (!result[j].fixedStartTime) {
+                    let simTime = startDateTime;
+                    for (let j = 0; j < i; j++) {
+                        const task = result[j];
+                        if (task.fixedStartTime) {
+                            const tf = parse(task.fixedStartTime, TIME_FORMAT, new Date());
+                            if (tf > simTime) simTime = tf;
+                        }
+                        const taskEnd = addMinutes(simTime, task.duration);
+                        const nextTask = j < result.length - 1 ? result[j + 1] : null;
+                        const withBreak = (nextTask && breakDuration > 0 && !task.isBreak && !nextTask.isBreak)
+                            ? addMinutes(taskEnd, breakDuration)
+                            : taskEnd;
+                        if (!task.fixedStartTime && withBreak > fixedTime) {
                             moveIndex = j;
                             break;
                         }
+                        simTime = withBreak;
                     }
 
                     if (moveIndex !== -1) {
