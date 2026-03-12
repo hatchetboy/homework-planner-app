@@ -1,6 +1,9 @@
 # Stage 1: Build the React application
 FROM node:20-alpine AS build
 
+ARG BUILD_NUMBER=0
+ENV VITE_APP_BUILD_NUMBER=$BUILD_NUMBER
+
 WORKDIR /app
 
 # Copy package files and install dependencies
