@@ -18,6 +18,7 @@ export const ScheduleList: React.FC = () => {
 
     // Calculate times for each block based on the start time
     const startDateTime = parse(timeBounds.start, 'HH:mm', new Date());
+    const endDateTime = parse(timeBounds.end, 'HH:mm', new Date());
 
     let currentStartTime = startDateTime;
 
@@ -50,10 +51,10 @@ export const ScheduleList: React.FC = () => {
         }
 
         const startTimeFormatted = format(currentStartTime, 'h:mm a');
-        const endDateTime = addMinutes(currentStartTime, item.durationMinutes);
-        const endTimeFormatted = format(endDateTime, 'h:mm a');
+        const itemEndTime = addMinutes(currentStartTime, item.durationMinutes);
+        const endTimeFormatted = format(itemEndTime, 'h:mm a');
 
-        currentStartTime = endDateTime; // advance for next item
+        currentStartTime = itemEndTime; // advance for next item
 
         scheduleWithTimes.push({
             ...item,
@@ -61,6 +62,11 @@ export const ScheduleList: React.FC = () => {
             endTimeFormatted
         });
     });
+
+    const overrunMinutes = Math.round((currentStartTime.getTime() - endDateTime.getTime()) / 60000);
+    const overrunWarning = overrunMinutes > 0
+        ? `Your schedule runs ${overrunMinutes} minute${overrunMinutes !== 1 ? 's' : ''} over your finish time of ${format(endDateTime, 'h:mm a')}. Go and tell your parents you are working too hard — seriously, this is their problem now.`
+        : null;
 
     const handleExport = async () => {
         if (!accessToken) {
@@ -103,8 +109,14 @@ export const ScheduleList: React.FC = () => {
                 </div>
             </div>
 
-            {warnings.length > 0 && (
+            {(warnings.length > 0 || overrunWarning) && (
                 <div className="flex-column gap-2 mb-4" style={{ background: 'var(--warning-bg, #fffbeb)', border: '1px solid var(--warning-border, #f59e0b)', borderRadius: '8px', padding: '0.75rem 1rem' }}>
+                    {overrunWarning && (
+                        <div className="flex-center gap-2" style={{ fontSize: '0.875rem', color: 'var(--warning-text, #92400e)' }}>
+                            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                            <span>{overrunWarning}</span>
+                        </div>
+                    )}
                     {warnings.map((warning, i) => (
                         <div key={i} className="flex-center gap-2" style={{ fontSize: '0.875rem', color: 'var(--warning-text, #92400e)' }}>
                             <AlertTriangle size={15} style={{ flexShrink: 0 }} />
