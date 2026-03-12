@@ -34,7 +34,7 @@ export const ChatInterface: React.FC = () => {
 
         try {
             const currentItemsForAI = items
-                .filter(i => i.type !== 'break')
+                .filter(i => !(i.type === 'break' && i.title === 'Break')) // keep named breaks (e.g. Dinner) but drop auto spacers
                 .map(i => ({ title: i.title, durationMinutes: i.durationMinutes, fixedStartTime: i.fixedStartTime }));
 
             const aiResult = await parsePromptWithAI(userText, settings.standingItems, currentItemsForAI, geminiHistory);
