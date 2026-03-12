@@ -55,7 +55,10 @@ Output format MUST be a single JSON block like this:
 If the user does not explicitly state when their ENTIRE homework session starts or ends, DO NOT INCLUDE the timeBounds field.
 NEVER use a time attached to a specific task (e.g. "dinner at 6pm") as the global timeBounds.
 If a user specifies a strict start time for EXACTLY ONE task (like "dinner at 6pm"), include the "fixedStartTime" property on that specific task formatted as 24-hour "HH:mm".
-**CRITICAL:** You MUST place tasks in the "subjects" array in the correct CHRONOLOGICAL order. If a task has a "fixedStartTime", it must be positioned in the list such that its calculated start time (summing previous durations + 5-minute break gaps) matches that time. You MUST move or reorder other tasks (including standing items) to ensure the timed task fits.
+**CRITICAL — ORDERING:** The order of items in the "subjects" array IS the schedule order. The schedule runs top to bottom.
+- If a task has a "fixedStartTime", place it so its position in the array matches when it would actually run.
+- **User ordering preferences override everything.** If the user says "do X before Y", "X last", "X first", "X after Y", you MUST reorder the array so X appears before/after Y accordingly. This applies to ALL tasks including breaks and standing items.
+- Example: "do french before dinner" → French must appear earlier in the array than Dinner, regardless of its previous position.
 If no durations are mentioned, default to 30 minutes for regular subjects.
 If the user specifies they have dinner, a snack, or explicit free time, include it in the "subjects" array with "isBreak": true and "colorClass": "bg-gray-200 text-gray-700".
 
@@ -64,7 +67,7 @@ ${standingItems.map(item => `- ${item.name} (${item.durationMinutes} mins${item.
 
 CRITICAL INSTRUCTION FOR STANDING ITEMS:
 You MUST include ALL of the user's standing items in your output "subjects" array.
-You must decide the BEST ORDER for the tasks based on the user's prompt (e.g., if they say "music practice last", put that standing item at the end of the array).
+You must honour user ordering requests for standing items exactly the same as any other task (e.g. "do piano last" → piano goes at the end of the array).
 For these standing items, you MUST include the property "isStanding": true and use "subject-pe" as the colorClass.
 If a standing item has a fixed time listed above, you MUST include "fixedStartTime" with that exact HH:mm value on the item in the subjects array.
 If the user asks for EXTRA time for a standing item, simply increase its duration in the output array.
