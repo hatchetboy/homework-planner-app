@@ -46,8 +46,8 @@ function App() {
           <div className="flex-column mt-4 pb-8" style={{ maxWidth: '800px', margin: '0 auto' }}>
             <h2 className="mb-6">Good evening, {user.name.split(' ')[0]}!</h2>
 
-            <div className="flex-between gap-6" style={{ alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
+            <div className="flex-between gap-6 layout-columns">
+              <div style={{ flex: 1, minWidth: '280px' }}>
                 <ErrorBoundary>
                   <ChatInterface />
                 </ErrorBoundary>
@@ -59,7 +59,7 @@ function App() {
                 </ErrorBoundary>
               </div>
 
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: '280px' }}>
                 <ErrorBoundary>
                   <ScheduleList />
                 </ErrorBoundary>
