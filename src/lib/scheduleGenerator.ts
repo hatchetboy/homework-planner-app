@@ -9,6 +9,7 @@ export interface SubjectInput {
     isStanding?: boolean;
     isBreak?: boolean;
     fixedStartTime?: string;
+    orderPreference?: boolean; // true if the user explicitly requested this task's position
 }
 
 export interface StandingItemInput {
@@ -63,8 +64,14 @@ export function resolveFixedTimeConflicts(
                     for (let j = 0; j < i; j++) {
                         if (!result[j].fixedStartTime) flexCandidates.push(j);
                     }
-                    // Sort by duration descending
-                    flexCandidates.sort((a, b) => result[b].duration - result[a].duration);
+                    // Sort: infill tasks (no orderPreference) first, then by duration desc.
+                    // This ensures user-placed tasks stay put while infill tasks absorb the overflow.
+                    flexCandidates.sort((a, b) => {
+                        const aPref = result[a].orderPreference ? 1 : 0;
+                        const bPref = result[b].orderPreference ? 1 : 0;
+                        if (aPref !== bPref) return aPref - bPref;
+                        return result[b].duration - result[a].duration;
+                    });
 
                     // Find the first candidate whose removal lets remaining tasks fit
                     let moveIndex = flexCandidates.length > 0 ? flexCandidates[0] : -1;
