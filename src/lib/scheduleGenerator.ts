@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { parse, addMinutes } from 'date-fns';
+import { parse, addMinutes, format } from 'date-fns';
 import type { ScheduleItem, ScheduleItemType } from '../context/SchedulerContext';
 
 export interface SubjectInput {
@@ -14,6 +14,12 @@ export interface SubjectInput {
 export interface StandingItemInput {
     name: string;
     durationMinutes: number;
+    startTime?: string; // HH:mm — if set, treated as a fixedStartTime
+}
+
+export interface ScheduleResult {
+    items: ScheduleItem[];
+    warnings: string[];
 }
 
 const TIME_FORMAT = 'HH:mm';
@@ -23,10 +29,6 @@ const STANDING_COLOR = 'subject-pe';
 /**
  * Reorders subjects so that any task with a fixedStartTime is not pushed
  * past its requested time by preceding flexible tasks.
- *
- * Works by repeatedly scanning the list and moving the most-recent flexible
- * task after a fixed task whenever a conflict is detected. Terminates when
- * no conflicts remain or after a safe maximum number of iterations.
  */
 export function resolveFixedTimeConflicts(
     subjects: SubjectInput[],
@@ -86,16 +88,37 @@ export function resolveFixedTimeConflicts(
 }
 
 /**
- * Converts an ordered list of subjects into ScheduleItems, inserting
- * break items between non-break subjects.
+ * Converts an ordered list of subjects into ScheduleItems, inserting break
+ * items between non-break subjects. Tracks actual start times to detect when
+ * a fixedStartTime could not be honoured and emits a warning in that case.
  */
 export function buildScheduleItems(
     subjects: SubjectInput[],
-    breakDuration: number
-): ScheduleItem[] {
+    breakDuration: number,
+    scheduleStart: string
+): ScheduleResult {
     const items: ScheduleItem[] = [];
+    const warnings: string[] = [];
+
+    let currentTime = parse(scheduleStart, TIME_FORMAT, new Date());
 
     subjects.forEach((subject, index) => {
+        if (subject.fixedStartTime) {
+            const requestedTime = parse(subject.fixedStartTime, TIME_FORMAT, new Date());
+
+            if (requestedTime > currentTime) {
+                // Jump forward — gap will be rendered by ScheduleList
+                currentTime = requestedTime;
+            } else if (requestedTime < currentTime) {
+                // Can't honour the requested time — warn the user
+                const requested = format(requestedTime, 'h:mm a');
+                const actual = format(currentTime, 'h:mm a');
+                warnings.push(
+                    `"${subject.name}" was requested at ${requested} but has been rescheduled to ${actual} due to a conflict.`
+                );
+            }
+        }
+
         let type: ScheduleItemType = 'study';
         if (subject.isStanding) type = 'standing';
         if (subject.isBreak) type = 'break';
@@ -111,6 +134,8 @@ export function buildScheduleItems(
             fixedStartTime: subject.fixedStartTime,
         });
 
+        currentTime = addMinutes(currentTime, subject.duration);
+
         if (index < subjects.length - 1 && breakDuration > 0) {
             const next = subjects[index + 1];
             if (!subject.isBreak && !next.isBreak) {
@@ -121,23 +146,25 @@ export function buildScheduleItems(
                     type: 'break',
                     colorClass: BREAK_COLOR,
                 });
+                currentTime = addMinutes(currentTime, breakDuration);
             }
         }
     });
 
-    return items;
+    return { items, warnings };
 }
 
 /**
- * Main entry point. Combines standing items with user-supplied subjects,
- * resolves fixed-time conflicts, then builds the final schedule item list.
+ * Main entry point. Combines standing items (honouring their startTime if set)
+ * with user-supplied subjects, resolves fixed-time conflicts, then builds the
+ * final schedule item list with any conflict warnings.
  */
 export function generateScheduleItems(
     subjects: SubjectInput[],
     breakDuration: number,
     scheduleStart: string,
     standingItems: StandingItemInput[] = []
-): ScheduleItem[] {
+): ScheduleResult {
     let subjectsToProcess = [...subjects];
 
     if (standingItems.length > 0) {
@@ -146,10 +173,11 @@ export function generateScheduleItems(
             duration: item.durationMinutes,
             colorClass: STANDING_COLOR,
             isStanding: true,
+            fixedStartTime: item.startTime, // honour precise standing item times
         }));
         subjectsToProcess = [...preparedStanding, ...subjectsToProcess];
     }
 
     const ordered = resolveFixedTimeConflicts(subjectsToProcess, scheduleStart, breakDuration);
-    return buildScheduleItems(ordered, breakDuration);
+    return buildScheduleItems(ordered, breakDuration, scheduleStart);
 }

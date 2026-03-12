@@ -23,7 +23,7 @@ const ParsedScheduleSchema = z.object({
 
 export type ParsedSchedule = z.infer<typeof ParsedScheduleSchema>;
 
-const getSystemPrompt = (standingItems: { name: string; durationMinutes: number }[]) => `
+const getSystemPrompt = (standingItems: { name: string; durationMinutes: number; startTime?: string }[]) => `
 You are a helpful study assistant for a student. Your task is to parse a natural language prompt into a structured schedule plan.
 Extract the subjects, their durations (in minutes), and any specific time bounds (start and end times) mentioned.
 
@@ -55,12 +55,13 @@ If no durations are mentioned, default to 30 minutes for regular subjects.
 If the user specifies they have dinner, a snack, or explicit free time, include it in the "subjects" array with "isBreak": true and "colorClass": "bg-gray-200 text-gray-700".
 
 The user already has the following standing items scheduled automatically:
-${standingItems.map(item => `- ${item.name} (${item.durationMinutes} mins)`).join('\n') || 'None'}
+${standingItems.map(item => `- ${item.name} (${item.durationMinutes} mins${item.startTime ? `, fixed time: ${item.startTime}` : ''})`).join('\n') || 'None'}
 
 CRITICAL INSTRUCTION FOR STANDING ITEMS:
 You MUST include ALL of the user's standing items in your output "subjects" array.
 You must decide the BEST ORDER for the tasks based on the user's prompt (e.g., if they say "music practice last", put that standing item at the end of the array).
 For these standing items, you MUST include the property "isStanding": true and use "subject-pe" as the colorClass.
+If a standing item has a fixed time listed above, you MUST include "fixedStartTime" with that exact HH:mm value on the item in the subjects array.
 If the user asks for EXTRA time for a standing item, simply increase its duration in the output array.
 
 Respond ONLY with the JSON block.
@@ -68,7 +69,7 @@ Respond ONLY with the JSON block.
 
 export const parsePromptWithAI = async (
     prompt: string,
-    standingItems: { name: string; durationMinutes: number }[] = []
+    standingItems: { name: string; durationMinutes: number; startTime?: string }[] = []
 ): Promise<ParsedSchedule | null> => {
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
         console.warn("Gemini API key is not set. Using mock parsing.");
