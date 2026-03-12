@@ -134,6 +134,10 @@ export const SettingsModal: React.FC = () => {
                         <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
                         <Button variant="primary" onClick={handleSave}>Save Settings</Button>
                     </div>
+
+                    <p style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.6, marginTop: '0.5rem' }}>
+                        v{__APP_VERSION__}
+                    </p>
                 </div>
             </Modal>
         </>
