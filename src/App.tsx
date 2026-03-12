@@ -3,7 +3,7 @@ import { Button } from './components/Button';
 import { Card } from './components/Card';
 import { SettingsModal } from './components/SettingsModal';
 import { TimeConfig } from './components/TimeConfig';
-import { SubjectPlanner } from './components/SubjectPlanner';
+import { StandingTasks } from './components/StandingTasks';
 import { ScheduleList } from './components/ScheduleList';
 import { ChatInterface } from './components/ChatInterface';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -55,7 +55,7 @@ function App() {
                   <TimeConfig />
                 </ErrorBoundary>
                 <ErrorBoundary>
-                  <SubjectPlanner />
+                  <StandingTasks />
                 </ErrorBoundary>
               </div>
 
