@@ -7,6 +7,7 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const ParsedScheduleSchema = z.object({
+    action: z.enum(["replace", "clear"]).optional(),
     subjects: z.array(z.object({
         name: z.string(),
         duration: z.number().positive(),
@@ -14,7 +15,7 @@ const ParsedScheduleSchema = z.object({
         isStanding: z.boolean().optional(),
         isBreak: z.boolean().optional(),
         fixedStartTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-    })),
+    })).optional(),
     timeBounds: z.object({
         start: z.string().regex(/^\d{2}:\d{2}$/),
         end: z.string().regex(/^\d{2}:\d{2}$/),
@@ -23,9 +24,13 @@ const ParsedScheduleSchema = z.object({
 
 export type ParsedSchedule = z.infer<typeof ParsedScheduleSchema>;
 
-const getSystemPrompt = (standingItems: { name: string; durationMinutes: number; startTime?: string }[]) => `
-You are a helpful study assistant for a student. Your task is to parse a natural language prompt into a structured schedule plan.
-Extract the subjects, their durations (in minutes), and any specific time bounds (start and end times) mentioned.
+export type GeminiHistoryEntry = { role: 'user' | 'model'; parts: { text: string }[] };
+
+const getSystemPrompt = (
+    standingItems: { name: string; durationMinutes: number; startTime?: string }[],
+    currentItems: { title: string; durationMinutes: number; fixedStartTime?: string }[]
+) => `
+You are a helpful study assistant for a student. Your task is to parse a natural language prompt into a structured schedule plan, or update an existing one.
 
 Subject colors mapping:
 - Math/Maths -> subject-math
@@ -64,12 +69,24 @@ For these standing items, you MUST include the property "isStanding": true and u
 If a standing item has a fixed time listed above, you MUST include "fixedStartTime" with that exact HH:mm value on the item in the subjects array.
 If the user asks for EXTRA time for a standing item, simply increase its duration in the output array.
 
+CURRENT SCHEDULE (what is already planned):
+${currentItems.length > 0
+    ? currentItems.map(i => `- "${i.title}" (${i.durationMinutes} mins${i.fixedStartTime ? `, fixed at ${i.fixedStartTime}` : ''})`).join('\n')
+    : 'Empty — nothing scheduled yet.'}
+
+CONVERSATIONAL UPDATES:
+- If the user asks to ADD, REMOVE, CHANGE, or MODIFY tasks, output the COMPLETE updated subjects array reflecting those changes to the current schedule above.
+- If the user asks to CLEAR, DELETE EVERYTHING, START OVER, or similar, respond with ONLY: {"action": "clear"}
+- Always return the full schedule, not just the changed parts.
+
 Respond ONLY with the JSON block.
 `;
 
 export const parsePromptWithAI = async (
     prompt: string,
-    standingItems: { name: string; durationMinutes: number; startTime?: string }[] = []
+    standingItems: { name: string; durationMinutes: number; startTime?: string }[] = [],
+    currentItems: { title: string; durationMinutes: number; fixedStartTime?: string }[] = [],
+    chatHistory: GeminiHistoryEntry[] = []
 ): Promise<ParsedSchedule | null> => {
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
         console.warn("Gemini API key is not set. Using mock parsing.");
@@ -77,8 +94,12 @@ export const parsePromptWithAI = async (
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-        const result = await model.generateContent([getSystemPrompt(standingItems), prompt]);
+        const model = genAI.getGenerativeModel({
+            model: GEMINI_MODEL,
+            systemInstruction: getSystemPrompt(standingItems, currentItems),
+        });
+        const chat = model.startChat({ history: chatHistory });
+        const result = await chat.sendMessage(prompt);
         const response = await result.response;
         const text = response.text();
 

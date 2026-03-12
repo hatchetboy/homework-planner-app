@@ -103,8 +103,9 @@ export const ScheduleList: React.FC = () => {
                             {isExporting ? <Loader2 size={18} className="animate-spin" /> : <CalendarCheck size={18} />}
                         </Button>
                     )}
-                    <Button variant="outline" onClick={clearItems} className="btn-icon" title="Clear Schedule">
-                        <Trash2 size={18} color="var(--danger)" />
+                    <Button variant="outline" onClick={clearItems} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--danger)', borderColor: 'var(--danger)' }} title="Clear Schedule">
+                        <Trash2 size={15} color="var(--danger)" />
+                        <span style={{ fontSize: '0.85rem' }}>Clear</span>
                     </Button>
                 </div>
             </div>
