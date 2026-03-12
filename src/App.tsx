@@ -6,6 +6,7 @@ import { TimeConfig } from './components/TimeConfig';
 import { SubjectPlanner } from './components/SubjectPlanner';
 import { ScheduleList } from './components/ScheduleList';
 import { ChatInterface } from './components/ChatInterface';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   const { user, login, logout, isLoading } = useAuth();
@@ -19,7 +20,9 @@ function App() {
         <div>
           {user ? (
             <div className="flex-center gap-4">
-              <SettingsModal />
+              <ErrorBoundary fallback={<span style={{ opacity: 0.5 }}>Settings unavailable</span>}>
+                <SettingsModal />
+              </ErrorBoundary>
               <span style={{ fontWeight: 600 }}>Hi, {user.name}!</span>
               <img src={user.picture} alt="Profile" style={{ width: 40, height: 40, borderRadius: '50%' }} />
               <Button variant="outline" onClick={() => logout()}>Logout</Button>
@@ -45,13 +48,21 @@ function App() {
 
             <div className="flex-between gap-6" style={{ alignItems: 'flex-start' }}>
               <div style={{ flex: 1 }}>
-                <ChatInterface />
-                <TimeConfig />
-                <SubjectPlanner />
+                <ErrorBoundary>
+                  <ChatInterface />
+                </ErrorBoundary>
+                <ErrorBoundary>
+                  <TimeConfig />
+                </ErrorBoundary>
+                <ErrorBoundary>
+                  <SubjectPlanner />
+                </ErrorBoundary>
               </div>
 
               <div style={{ flex: 1 }}>
-                <ScheduleList />
+                <ErrorBoundary>
+                  <ScheduleList />
+                </ErrorBoundary>
               </div>
             </div>
           </div>
