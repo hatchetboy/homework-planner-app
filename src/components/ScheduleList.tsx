@@ -4,12 +4,12 @@ import { Button } from './Button';
 import { useScheduler } from '../context/SchedulerContext';
 import type { ScheduleItem } from '../context/SchedulerContext';
 import { useAuth } from '../context/AuthContext';
-import { ListTodo, Trash2, CalendarCheck, Loader2 } from 'lucide-react';
+import { ListTodo, Trash2, CalendarCheck, Loader2, AlertTriangle } from 'lucide-react';
 import { addMinutes, parse, format } from 'date-fns';
 import { exportToGoogleCalendar } from '../services/CalendarExport';
 
 export const ScheduleList: React.FC = () => {
-    const { items, timeBounds, clearItems, removeItem } = useScheduler();
+    const { items, warnings, timeBounds, clearItems, removeItem } = useScheduler();
 
     const { accessToken } = useAuth();
     const [isExporting, setIsExporting] = React.useState(false);
@@ -102,6 +102,17 @@ export const ScheduleList: React.FC = () => {
                     </Button>
                 </div>
             </div>
+
+            {warnings.length > 0 && (
+                <div className="flex-column gap-2 mb-4" style={{ background: 'var(--warning-bg, #fffbeb)', border: '1px solid var(--warning-border, #f59e0b)', borderRadius: '8px', padding: '0.75rem 1rem' }}>
+                    {warnings.map((warning, i) => (
+                        <div key={i} className="flex-center gap-2" style={{ fontSize: '0.875rem', color: 'var(--warning-text, #92400e)' }}>
+                            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                            <span>{warning}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <div className="flex-column gap-3">
                 {scheduleWithTimes.map((item, index) => (
