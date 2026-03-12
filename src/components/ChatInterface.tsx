@@ -91,7 +91,7 @@ export const ChatInterface: React.FC = () => {
             setDisplayMessages(prev => [...prev, { role: 'assistant', text: "Oops, something went wrong!" }]);
         } finally {
             setIsProcessing(false);
-            inputRef.current?.focus();
+            setTimeout(() => inputRef.current?.focus(), 0);
         }
     };
 
