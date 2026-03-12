@@ -1,0 +1,10 @@
+# Standard ignores
+.git/
+node_modules/
+dist/
+.npm/
+*.log
+
+# .env is excluded by .gitignore but must be included here so VITE_ vars
+# get baked into the bundle at build time by Vite (they are public client-side vars)
+!.env
