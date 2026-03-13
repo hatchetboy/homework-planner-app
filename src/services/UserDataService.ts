@@ -15,7 +15,7 @@ interface Settings {
     standingItems: StandingItem[];
 }
 
-export async function loadUserSettings(userId: string): Promise<Settings | null> {
+export async function loadUserSettings(_userId: string): Promise<Settings | null> {
     if (!firebaseEnabled || !db) return null;
     const uid = getFirebaseUid();
     if (!uid) return null;
@@ -36,7 +36,7 @@ export async function loadUserSettings(userId: string): Promise<Settings | null>
     }
 }
 
-export async function saveUserSettings(userId: string, settings: Settings): Promise<void> {
+export async function saveUserSettings(_userId: string, settings: Settings): Promise<void> {
     if (!firebaseEnabled || !db) return;
     const uid = getFirebaseUid();
     if (!uid) return;
