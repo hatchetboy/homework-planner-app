@@ -9,14 +9,10 @@ RUN npm ci
 
 # Copy all project files and build
 COPY . .
-ARG BUILD_NUMBER=dev
-ARG VITE_FIREBASE_API_KEY
-ARG VITE_FIREBASE_AUTH_DOMAIN
-ARG VITE_FIREBASE_PROJECT_ID
-ENV VITE_APP_BUILD_NUMBER=${BUILD_NUMBER}
-ENV VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY}
-ENV VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN}
-ENV VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID}
+# Firebase vars come from .env.production (committed to repo — public keys).
+# VITE_APP_BUILD_NUMBER is passed via --build-arg from cloudbuild.yaml;
+# vite.config.ts falls back to .build-number file when it is not set.
+ARG VITE_APP_BUILD_NUMBER
 RUN npm run build
 
 # Stage 2: Serve the application with Nginx
