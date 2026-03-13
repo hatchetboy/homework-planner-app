@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, firebaseAuth, firebaseEnabled } from '../lib/firebase';
-import type { StandingItem } from '../context/SettingsContext';
+import type { StandingItem, TimeBounds } from '../context/SettingsContext';
 
 // Firebase Auth assigns its own UID (different from Google's sub/userInfo.sub).
 // Firestore security rules use request.auth.uid, so we must use the Firebase UID
@@ -13,6 +13,7 @@ interface Settings {
     defaultActivityLength: number;
     defaultBreakLength: number;
     standingItems: StandingItem[];
+    timeBounds: TimeBounds;
 }
 
 export async function loadUserSettings(_userId: string): Promise<Settings | null> {
@@ -29,6 +30,7 @@ export async function loadUserSettings(_userId: string): Promise<Settings | null
             defaultActivityLength: data.defaultActivityLength ?? 30,
             defaultBreakLength: data.defaultBreakLength ?? 5,
             standingItems: data.standingItems ?? [],
+            timeBounds: data.timeBounds ?? { start: '16:00', end: '18:00' },
         };
     } catch (err) {
         console.warn('Firestore load failed, using local cache:', err);

@@ -3,6 +3,10 @@ import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { generateScheduleItems } from '../lib/scheduleGenerator';
 import type { SubjectInput, StandingItemInput } from '../lib/scheduleGenerator';
+import { useSettings } from './SettingsContext';
+import type { TimeBounds } from './SettingsContext';
+
+export type { TimeBounds };
 
 interface GenerationInputs {
     subjects: SubjectInput[];
@@ -22,11 +26,6 @@ export interface ScheduleItem {
     fixedStartTime?: string;
 }
 
-export interface TimeBounds {
-    start: string; // HH:mm format
-    end: string;   // HH:mm format
-}
-
 interface SchedulerContextType {
     timeBounds: TimeBounds;
     setTimeBounds: (bounds: TimeBounds) => void;
@@ -40,15 +39,12 @@ interface SchedulerContextType {
     generateSchedule: (subjects: SubjectInput[], breakDuration: number, standingItems?: StandingItemInput[]) => void;
 }
 
-const defaultTimeBounds: TimeBounds = {
-    start: '16:00', // 4:00 PM usually after school
-    end: '18:00',   // 6:00 PM usually before dinner
-};
-
 const SchedulerContext = createContext<SchedulerContextType | undefined>(undefined);
 
 export const SchedulerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [timeBounds, setTimeBounds] = useState<TimeBounds>(defaultTimeBounds);
+    const { settings, updateSettings } = useSettings();
+    const timeBounds = settings.timeBounds;
+    const setTimeBounds = (bounds: typeof timeBounds) => updateSettings({ timeBounds: bounds });
     const [items, setItems] = useState<ScheduleItem[]>([]);
     const [warnings, setWarnings] = useState<string[]>([]);
     const lastInputs = useRef<GenerationInputs | null>(null);

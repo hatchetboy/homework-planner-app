@@ -10,10 +10,16 @@ export interface StandingItem {
     startTime?: string; // Optional: "HH:mm"
 }
 
+export interface TimeBounds {
+    start: string; // HH:mm
+    end: string;   // HH:mm
+}
+
 interface Settings {
     defaultActivityLength: number; // in minutes (renamed from session)
     defaultBreakLength: number; // in minutes
     standingItems: StandingItem[];
+    timeBounds: TimeBounds;
 }
 
 interface SettingsContextType {
@@ -28,6 +34,7 @@ const defaultSettings: Settings = {
     defaultActivityLength: 30,
     defaultBreakLength: 5,
     standingItems: [],
+    timeBounds: { start: '16:00', end: '18:00' },
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -66,6 +73,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                         defaultActivityLength: parsed.defaultActivityLength || parsed.defaultSessionLength || 30,
                         defaultBreakLength: parsed.defaultBreakLength ?? 5,
                         standingItems: parsed.standingItems || [],
+                        timeBounds: parsed.timeBounds ?? defaultSettings.timeBounds,
                     });
                 } else {
                     setSettings(defaultSettings);
