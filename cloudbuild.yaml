@@ -4,11 +4,9 @@ steps:
     args:
       - '-c'
       - |
-        BUILD_NUMBER=$(git rev-list --count HEAD)
-        echo "Building version 1.$${BUILD_NUMBER}"
         docker build \
-          --build-arg BUILD_NUMBER=$${BUILD_NUMBER} \
-          -t gcr.io/$PROJECT_ID/homework-planner:$COMMIT_SHA \
+          --build-arg BUILD_NUMBER=${SHORT_SHA} \
+          -t gcr.io/$PROJECT_ID/homework-planner:${SHORT_SHA} \
           -t gcr.io/$PROJECT_ID/homework-planner:latest \
           .
 
@@ -20,6 +18,6 @@ steps:
       - run
       - deploy
       - homework-planner
-      - --image=gcr.io/$PROJECT_ID/homework-planner:$COMMIT_SHA
+      - --image=gcr.io/$PROJECT_ID/homework-planner:${SHORT_SHA}
       - --region=us-central1
       - --allow-unauthenticated

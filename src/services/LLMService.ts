@@ -7,6 +7,7 @@ const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const ParsedScheduleSchema = z.object({
+    action: z.enum(["replace", "clear"]).optional(),
     subjects: z.array(z.object({
         name: z.string(),
         duration: z.number().positive(),
@@ -14,7 +15,8 @@ const ParsedScheduleSchema = z.object({
         isStanding: z.boolean().optional(),
         isBreak: z.boolean().optional(),
         fixedStartTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-    })),
+        orderPreference: z.boolean().optional(),
+    })).optional(),
     timeBounds: z.object({
         start: z.string().regex(/^\d{2}:\d{2}$/),
         end: z.string().regex(/^\d{2}:\d{2}$/),
@@ -23,9 +25,13 @@ const ParsedScheduleSchema = z.object({
 
 export type ParsedSchedule = z.infer<typeof ParsedScheduleSchema>;
 
-const getSystemPrompt = (standingItems: { name: string; durationMinutes: number; startTime?: string }[]) => `
-You are a helpful study assistant for a student. Your task is to parse a natural language prompt into a structured schedule plan.
-Extract the subjects, their durations (in minutes), and any specific time bounds (start and end times) mentioned.
+export type GeminiHistoryEntry = { role: 'user' | 'model'; parts: { text: string }[] };
+
+const getSystemPrompt = (
+    standingItems: { name: string; durationMinutes: number; startTime?: string }[],
+    currentItems: { title: string; durationMinutes: number; fixedStartTime?: string }[]
+) => `
+You are a helpful study assistant for a student. Your task is to parse a natural language prompt into a structured schedule plan, or update an existing one.
 
 Subject colors mapping:
 - Math/Maths -> subject-math
@@ -50,7 +56,12 @@ Output format MUST be a single JSON block like this:
 If the user does not explicitly state when their ENTIRE homework session starts or ends, DO NOT INCLUDE the timeBounds field.
 NEVER use a time attached to a specific task (e.g. "dinner at 6pm") as the global timeBounds.
 If a user specifies a strict start time for EXACTLY ONE task (like "dinner at 6pm"), include the "fixedStartTime" property on that specific task formatted as 24-hour "HH:mm".
-**CRITICAL:** You MUST place tasks in the "subjects" array in the correct CHRONOLOGICAL order. If a task has a "fixedStartTime", it must be positioned in the list such that its calculated start time (summing previous durations + 5-minute break gaps) matches that time. You MUST move or reorder other tasks (including standing items) to ensure the timed task fits.
+**CRITICAL — ORDERING:** The order of items in the "subjects" array IS the schedule order. The schedule runs top to bottom.
+- If a task has a "fixedStartTime", place it so its position in the array matches when it would actually run.
+- **User ordering preferences override everything.** If the user says "do X before Y", "X last", "X first", "X after Y", you MUST reorder the array so X appears before/after Y accordingly. This applies to ALL tasks including breaks and standing items.
+- Example: "do french before dinner" → French must appear earlier in the array than Dinner, regardless of its previous position.
+- **Fixed time + ordering conflict:** If honouring an ordering preference would cause a task with a "fixedStartTime" to start late, still keep the "fixedStartTime". The scheduler will automatically move the task that doesn't fit to after the fixed-time task and fill the gap with free time. Fixed start times always win.
+- **orderPreference flag:** Set "orderPreference": true on any task where the user explicitly requested its position (e.g. "X first", "X before Y", "X last", "X after Y"). Leave it unset for tasks the user did not specifically place — these are infill tasks and the scheduler will move them to make room for preferred tasks.
 If no durations are mentioned, default to 30 minutes for regular subjects.
 If the user specifies they have dinner, a snack, or explicit free time, include it in the "subjects" array with "isBreak": true and "colorClass": "bg-gray-200 text-gray-700".
 
@@ -59,17 +70,29 @@ ${standingItems.map(item => `- ${item.name} (${item.durationMinutes} mins${item.
 
 CRITICAL INSTRUCTION FOR STANDING ITEMS:
 You MUST include ALL of the user's standing items in your output "subjects" array.
-You must decide the BEST ORDER for the tasks based on the user's prompt (e.g., if they say "music practice last", put that standing item at the end of the array).
+You must honour user ordering requests for standing items exactly the same as any other task (e.g. "do piano last" → piano goes at the end of the array).
 For these standing items, you MUST include the property "isStanding": true and use "subject-pe" as the colorClass.
 If a standing item has a fixed time listed above, you MUST include "fixedStartTime" with that exact HH:mm value on the item in the subjects array.
 If the user asks for EXTRA time for a standing item, simply increase its duration in the output array.
+
+CURRENT SCHEDULE (what is already planned):
+${currentItems.length > 0
+    ? currentItems.map(i => `- "${i.title}" (${i.durationMinutes} mins${i.fixedStartTime ? `, fixed at ${i.fixedStartTime}` : ''})`).join('\n')
+    : 'Empty — nothing scheduled yet.'}
+
+CONVERSATIONAL UPDATES:
+- If the user asks to ADD, REMOVE, CHANGE, or MODIFY tasks, output the COMPLETE updated subjects array reflecting those changes to the current schedule above.
+- If the user asks to CLEAR, DELETE EVERYTHING, START OVER, or similar, respond with ONLY: {"action": "clear"}
+- Always return the full schedule, not just the changed parts.
 
 Respond ONLY with the JSON block.
 `;
 
 export const parsePromptWithAI = async (
     prompt: string,
-    standingItems: { name: string; durationMinutes: number; startTime?: string }[] = []
+    standingItems: { name: string; durationMinutes: number; startTime?: string }[] = [],
+    currentItems: { title: string; durationMinutes: number; fixedStartTime?: string }[] = [],
+    chatHistory: GeminiHistoryEntry[] = []
 ): Promise<ParsedSchedule | null> => {
     if (!apiKey || apiKey === 'YOUR_GEMINI_API_KEY_HERE') {
         console.warn("Gemini API key is not set. Using mock parsing.");
@@ -77,8 +100,12 @@ export const parsePromptWithAI = async (
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
-        const result = await model.generateContent([getSystemPrompt(standingItems), prompt]);
+        const model = genAI.getGenerativeModel({
+            model: GEMINI_MODEL,
+            systemInstruction: getSystemPrompt(standingItems, currentItems),
+        });
+        const chat = model.startChat({ history: chatHistory });
+        const result = await chat.sendMessage(prompt);
         const response = await result.response;
         const text = response.text();
 
