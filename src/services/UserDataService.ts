@@ -31,8 +31,14 @@ export async function saveUserSettings(userId: string, settings: Settings): Prom
     if (!firebaseEnabled || !db) return;
 
     try {
+        // Firestore rejects undefined values — strip optional fields that aren't set
+        const sanitizedItems = settings.standingItems.map(item => {
+            const { startTime, ...rest } = item;
+            return startTime !== undefined ? { ...rest, startTime } : rest;
+        });
         await setDoc(doc(db, 'users', userId), {
             ...settings,
+            standingItems: sanitizedItems,
             updatedAt: serverTimestamp(),
         });
     } catch (err) {
