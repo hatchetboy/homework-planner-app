@@ -1,45 +1,56 @@
 steps:
-  # Compute build metadata (git not available in docker builder)
+  # Compute build metadata and write all scripts with values resolved.
+  # Using ubuntu (has git) and writing scripts to /workspace avoids $$
+  # escaping issues and works for both push triggers and gcloud builds submit.
   - name: 'ubuntu'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        git rev-list --count HEAD > /workspace/build_number.txt
-        git rev-parse --short HEAD > /workspace/short_sha.txt
-        echo "Build number: $(cat /workspace/build_number.txt), SHA: $(cat /workspace/short_sha.txt)"
+        set -e
+        BUILD_NUM=$(git rev-list --count HEAD)
+        SHA=$(git rev-parse --short HEAD)
+        echo "Build number: $BUILD_NUM  SHA: $SHA"
 
-  - name: 'gcr.io/cloud-builders/docker'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        BUILD_NUMBER=$$(cat /workspace/build_number.txt)
-        SHORT_SHA=$$(cat /workspace/short_sha.txt)
+        cat > /workspace/docker_build.sh << ENDBUILD
+        #!/bin/sh
+        set -e
         docker build \
-          --build-arg BUILD_NUMBER=$$BUILD_NUMBER \
+          --build-arg BUILD_NUMBER=$BUILD_NUM \
           --build-arg VITE_FIREBASE_API_KEY=${_FIREBASE_API_KEY} \
           --build-arg VITE_FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN} \
           --build-arg VITE_FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID} \
-          -t gcr.io/$PROJECT_ID/homework-planner:$$SHORT_SHA \
-          -t gcr.io/$PROJECT_ID/homework-planner:latest \
+          -t gcr.io/${PROJECT_ID}/homework-planner:$SHA \
+          -t gcr.io/${PROJECT_ID}/homework-planner:latest \
           .
+        ENDBUILD
 
-  - name: 'gcr.io/cloud-builders/docker'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        SHORT_SHA=$$(cat /workspace/short_sha.txt)
-        docker push --all-tags gcr.io/$PROJECT_ID/homework-planner
+        cat > /workspace/docker_push.sh << ENDPUSH
+        #!/bin/sh
+        set -e
+        docker push --all-tags gcr.io/${PROJECT_ID}/homework-planner
+        ENDPUSH
 
-  - name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        SHORT_SHA=$$(cat /workspace/short_sha.txt)
+        cat > /workspace/gcloud_deploy.sh << ENDDEPLOY
+        #!/bin/sh
+        set -e
         gcloud run deploy homework-planner \
-          --image=gcr.io/$PROJECT_ID/homework-planner:$$SHORT_SHA \
+          --image=gcr.io/${PROJECT_ID}/homework-planner:$SHA \
           --region=us-central1 \
           --allow-unauthenticated
+        ENDDEPLOY
+
+        chmod +x /workspace/docker_build.sh /workspace/docker_push.sh /workspace/gcloud_deploy.sh
+        cat /workspace/docker_build.sh
+
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'sh'
+    args: ['/workspace/docker_build.sh']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    entrypoint: 'sh'
+    args: ['/workspace/docker_push.sh']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'sh'
+    args: ['/workspace/gcloud_deploy.sh']
