@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useGoogleLogin, googleLogout } from '@react-oauth/google';
 import type { TokenResponse } from '@react-oauth/google';
+import { GoogleAuthProvider, signInWithCredential, signOut } from 'firebase/auth';
+import { firebaseAuth, firebaseEnabled } from '../lib/firebase';
 
 interface User {
     id: string;
@@ -41,6 +43,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     email: userInfo.email,
                     picture: userInfo.picture,
                 });
+
+                // Sign into Firebase silently using the Google OAuth token
+                if (firebaseEnabled && firebaseAuth) {
+                    const credential = GoogleAuthProvider.credential(null, tokenResponse.access_token);
+                    await signInWithCredential(firebaseAuth, credential).catch(err =>
+                        console.warn('Firebase sign-in failed:', err)
+                    );
+                }
             } catch (error) {
                 console.error("Failed to fetch user info", error);
             } finally {
@@ -53,6 +63,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const logout = () => {
         googleLogout();
+        if (firebaseEnabled && firebaseAuth) {
+            signOut(firebaseAuth).catch(() => {});
+        }
         setUser(null);
         setAccessToken(null);
     };
