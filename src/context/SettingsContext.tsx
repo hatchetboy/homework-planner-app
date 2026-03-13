@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { loadUserSettings, saveUserSettings } from '../services/UserDataService';
 
 export interface StandingItem {
     id: string;
@@ -9,10 +10,16 @@ export interface StandingItem {
     startTime?: string; // Optional: "HH:mm"
 }
 
+export interface TimeBounds {
+    start: string; // HH:mm
+    end: string;   // HH:mm
+}
+
 interface Settings {
     defaultActivityLength: number; // in minutes (renamed from session)
     defaultBreakLength: number; // in minutes
     standingItems: StandingItem[];
+    timeBounds: TimeBounds;
 }
 
 interface SettingsContextType {
@@ -20,12 +27,14 @@ interface SettingsContextType {
     updateSettings: (newSettings: Partial<Settings>) => void;
     addStandingItem: (item: Omit<StandingItem, 'id'>) => void;
     removeStandingItem: (id: string) => void;
+    isLoadingSettings: boolean;
 }
 
 const defaultSettings: Settings = {
     defaultActivityLength: 30,
     defaultBreakLength: 5,
     standingItems: [],
+    timeBounds: { start: '16:00', end: '18:00' },
 };
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -35,33 +44,64 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     const storageKey = useMemo(() => user ? `homeworkPlannerSettings_${user.id}` : null, [user]);
 
     const [settings, setSettings] = useState<Settings>(defaultSettings);
+    const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+    const isInitialLoad = useRef(true);
+    const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Initial load when user changes
+    // Initial load when user changes: try Firestore first, fall back to localStorage
     useEffect(() => {
-        if (!storageKey) {
+        isInitialLoad.current = true;
+
+        if (!storageKey || !user) {
             setSettings(defaultSettings);
             return;
         }
 
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            setSettings({
-                defaultActivityLength: parsed.defaultActivityLength || parsed.defaultSessionLength || 30,
-                defaultBreakLength: parsed.defaultBreakLength ?? 5,
-                standingItems: parsed.standingItems || [],
-            });
-        } else {
-            setSettings(defaultSettings);
-        }
+        setIsLoadingSettings(true);
+
+        loadUserSettings(user.id).then(cloudSettings => {
+            if (cloudSettings) {
+                // Firestore is the source of truth
+                setSettings(cloudSettings);
+                localStorage.setItem(storageKey, JSON.stringify(cloudSettings));
+            } else {
+                // Fall back to localStorage
+                const saved = localStorage.getItem(storageKey);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    setSettings({
+                        defaultActivityLength: parsed.defaultActivityLength || parsed.defaultSessionLength || 30,
+                        defaultBreakLength: parsed.defaultBreakLength ?? 5,
+                        standingItems: parsed.standingItems || [],
+                        timeBounds: parsed.timeBounds ?? defaultSettings.timeBounds,
+                    });
+                } else {
+                    setSettings(defaultSettings);
+                }
+            }
+        }).finally(() => {
+            setIsLoadingSettings(false);
+            isInitialLoad.current = false;
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [storageKey]);
 
-    // Save when settings change
+    // Persist when settings change: localStorage immediately, Firestore debounced
     useEffect(() => {
-        if (storageKey) {
-            localStorage.setItem(storageKey, JSON.stringify(settings));
-        }
-    }, [settings, storageKey]);
+        if (isInitialLoad.current) return;
+        if (!storageKey || !user) return;
+
+        localStorage.setItem(storageKey, JSON.stringify(settings));
+
+        if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+        saveDebounceRef.current = setTimeout(() => {
+            saveUserSettings(user.id, settings);
+        }, 1500);
+
+        return () => {
+            if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current);
+        };
+    }, [settings, storageKey, user]);
 
     const updateSettings = (newSettings: Partial<Settings>) => {
         setSettings(prev => ({ ...prev, ...newSettings }));
@@ -83,7 +123,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
 
     return (
-        <SettingsContext.Provider value={{ settings, updateSettings, addStandingItem, removeStandingItem }}>
+        <SettingsContext.Provider value={{ settings, updateSettings, addStandingItem, removeStandingItem, isLoadingSettings }}>
             {children}
         </SettingsContext.Provider>
     );

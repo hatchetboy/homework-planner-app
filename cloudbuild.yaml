@@ -5,7 +5,7 @@ steps:
       - '-c'
       - |
         docker build \
-          --build-arg BUILD_NUMBER=${SHORT_SHA} \
+          --build-arg VITE_APP_BUILD_NUMBER=${SHORT_SHA} \
           -t gcr.io/$PROJECT_ID/homework-planner:${SHORT_SHA} \
           -t gcr.io/$PROJECT_ID/homework-planner:latest \
           .
