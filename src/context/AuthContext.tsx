@@ -37,20 +37,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
                 }).then(res => res.json());
 
-                setUser({
-                    id: userInfo.sub,
-                    name: userInfo.name,
-                    email: userInfo.email,
-                    picture: userInfo.picture,
-                });
-
-                // Sign into Firebase silently using the Google OAuth token
+                // Sign into Firebase BEFORE setting user so SettingsContext
+                // can safely read Firestore the moment it sees the user.
                 if (firebaseEnabled && firebaseAuth) {
                     const credential = GoogleAuthProvider.credential(null, tokenResponse.access_token);
                     await signInWithCredential(firebaseAuth, credential).catch(err =>
                         console.warn('Firebase sign-in failed:', err)
                     );
                 }
+
+                setUser({
+                    id: userInfo.sub,
+                    name: userInfo.name,
+                    email: userInfo.email,
+                    picture: userInfo.picture,
+                });
             } catch (error) {
                 console.error("Failed to fetch user info", error);
             } finally {

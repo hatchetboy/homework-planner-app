@@ -4,8 +4,12 @@ steps:
     args:
       - '-c'
       - |
+        BUILD_NUMBER=$(git rev-list --count HEAD)
         docker build \
-          --build-arg BUILD_NUMBER=${SHORT_SHA} \
+          --build-arg BUILD_NUMBER=${BUILD_NUMBER} \
+          --build-arg VITE_FIREBASE_API_KEY=${_FIREBASE_API_KEY} \
+          --build-arg VITE_FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN} \
+          --build-arg VITE_FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID} \
           -t gcr.io/$PROJECT_ID/homework-planner:${SHORT_SHA} \
           -t gcr.io/$PROJECT_ID/homework-planner:latest \
           .
