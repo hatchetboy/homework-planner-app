@@ -9,6 +9,8 @@ RUN npm ci
 
 # Copy all project files and build
 COPY . .
+ARG BUILD_NUMBER=dev
+ENV VITE_APP_BUILD_NUMBER=${BUILD_NUMBER}
 RUN npm run build
 
 # Stage 2: Serve the application with Nginx

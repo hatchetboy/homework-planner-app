@@ -9,6 +9,7 @@ export interface SubjectInput {
     isStanding?: boolean;
     isBreak?: boolean;
     fixedStartTime?: string;
+    orderPreference?: boolean; // true if the user explicitly requested this task's position
 }
 
 export interface StandingItemInput {
@@ -36,7 +37,7 @@ export function resolveFixedTimeConflicts(
     breakDuration: number
 ): SubjectInput[] {
     const result = [...subjects];
-    const maxIterations = result.length * 2;
+    const maxIterations = result.length * result.length;
     let hasChanges = true;
     let iterations = 0;
 
@@ -54,11 +55,47 @@ export function resolveFixedTimeConflicts(
                 const fixedTime = parse(subject.fixedStartTime, TIME_FORMAT, new Date());
 
                 if (fixedTime < currentTrialTime) {
-                    // Conflict: find the most recent flexible task before this one and move it after
-                    let moveIndex = -1;
-                    for (let j = i - 1; j >= 0; j--) {
-                        if (!result[j].fixedStartTime) {
-                            moveIndex = j;
+                    // Conflict: too many tasks before the fixed-time task.
+                    // Strategy: try moving the LARGEST flexible task first. This maximises
+                    // the chance that smaller "preferred" tasks (placed close to the fixed
+                    // task by the AI) can stay in front of it. If the largest alone isn't
+                    // enough, the while-loop iterates again to move another.
+                    const flexCandidates: number[] = [];
+                    for (let j = 0; j < i; j++) {
+                        if (!result[j].fixedStartTime) flexCandidates.push(j);
+                    }
+                    // Sort: infill tasks (no orderPreference) first, then by duration desc.
+                    // This ensures user-placed tasks stay put while infill tasks absorb the overflow.
+                    flexCandidates.sort((a, b) => {
+                        const aPref = result[a].orderPreference ? 1 : 0;
+                        const bPref = result[b].orderPreference ? 1 : 0;
+                        if (aPref !== bPref) return aPref - bPref;
+                        return result[b].duration - result[a].duration;
+                    });
+
+                    // Find the first candidate whose removal lets remaining tasks fit
+                    let moveIndex = flexCandidates.length > 0 ? flexCandidates[0] : -1;
+                    for (const candidateIdx of flexCandidates) {
+                        let testTime = startDateTime;
+                        for (let j = 0; j < i; j++) {
+                            if (j === candidateIdx) continue;
+                            const task = result[j];
+                            if (task.fixedStartTime) {
+                                const tf = parse(task.fixedStartTime, TIME_FORMAT, new Date());
+                                if (tf > testTime) testTime = tf;
+                            }
+                            testTime = addMinutes(testTime, task.duration);
+                            // find next non-skipped task for break calculation
+                            let nextTask: SubjectInput | null = null;
+                            for (let k = j + 1; k <= i; k++) {
+                                if (k !== candidateIdx) { nextTask = result[k] ?? null; break; }
+                            }
+                            if (nextTask && breakDuration > 0 && !task.isBreak && !nextTask.isBreak) {
+                                testTime = addMinutes(testTime, breakDuration);
+                            }
+                        }
+                        if (testTime <= fixedTime) {
+                            moveIndex = candidateIdx;
                             break;
                         }
                     }
@@ -178,6 +215,9 @@ export function generateScheduleItems(
         subjectsToProcess = [...preparedStanding, ...subjectsToProcess];
     }
 
+    // Always resolve fixed-time conflicts: fixed start times take priority over
+    // ordering preferences. If a flexible task can't fit before a fixed-time task,
+    // it gets moved after it and free time fills the gap.
     const ordered = resolveFixedTimeConflicts(subjectsToProcess, scheduleStart, breakDuration);
     return buildScheduleItems(ordered, breakDuration, scheduleStart);
 }
