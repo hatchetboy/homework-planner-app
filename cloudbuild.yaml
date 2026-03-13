@@ -1,27 +1,45 @@
 steps:
+  # Compute build metadata (git not available in docker builder)
+  - name: 'ubuntu'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        git rev-list --count HEAD > /workspace/build_number.txt
+        git rev-parse --short HEAD > /workspace/short_sha.txt
+        echo "Build number: $(cat /workspace/build_number.txt), SHA: $(cat /workspace/short_sha.txt)"
+
   - name: 'gcr.io/cloud-builders/docker'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        BUILD_NUMBER=$$(git rev-list --count HEAD)
+        BUILD_NUMBER=$$(cat /workspace/build_number.txt)
+        SHORT_SHA=$$(cat /workspace/short_sha.txt)
         docker build \
           --build-arg BUILD_NUMBER=$$BUILD_NUMBER \
           --build-arg VITE_FIREBASE_API_KEY=${_FIREBASE_API_KEY} \
           --build-arg VITE_FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN} \
           --build-arg VITE_FIREBASE_PROJECT_ID=${_FIREBASE_PROJECT_ID} \
-          -t gcr.io/$PROJECT_ID/homework-planner:${SHORT_SHA} \
+          -t gcr.io/$PROJECT_ID/homework-planner:$$SHORT_SHA \
           -t gcr.io/$PROJECT_ID/homework-planner:latest \
           .
 
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '--all-tags', 'gcr.io/$PROJECT_ID/homework-planner']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SHORT_SHA=$$(cat /workspace/short_sha.txt)
+        docker push --all-tags gcr.io/$PROJECT_ID/homework-planner
 
   - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
     args:
-      - run
-      - deploy
-      - homework-planner
-      - --image=gcr.io/$PROJECT_ID/homework-planner:${SHORT_SHA}
-      - --region=us-central1
-      - --allow-unauthenticated
+      - '-c'
+      - |
+        SHORT_SHA=$$(cat /workspace/short_sha.txt)
+        gcloud run deploy homework-planner \
+          --image=gcr.io/$PROJECT_ID/homework-planner:$$SHORT_SHA \
+          --region=us-central1 \
+          --allow-unauthenticated
